@@ -40,7 +40,7 @@ scipy==1.17.1
 setuptools==84.0.0
 shapely==2.1.2
 sympy==1.14.0
-tifffile==2026.8.23
+tifffile==2026.3.3
 torch==2.13.0
 torchvision==0.28.0
 tqdm==4.70.0
