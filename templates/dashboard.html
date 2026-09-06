@@ -1,0 +1,2582 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0">
+
+    <title>AI Document Screening System</title>
+
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='style.css') }}">
+
+
+<style>
+
+/* ============================================================
+   SCREENING MODULE BEHAVIOUR
+   ============================================================ */
+
+.modules .module {
+    transition: all 0.25s ease;
+}
+
+.ocr-result,
+.validation-result,
+.tampering-result,
+.face-result,
+.fraud-result,
+.verification-result {
+    display: none !important;
+}
+
+.ocr-result.show,
+.validation-result.show,
+.tampering-result.show,
+.face-result.show,
+.fraud-result.show,
+.verification-result.show {
+    display: block !important;
+}
+
+.module.expanded {
+    grid-column: 1 / -1 !important;
+}
+
+
+/* ============================================================
+   MODULE BUTTONS
+   ============================================================ */
+
+.expand-button,
+.validation-toggle-button,
+.module-arrow {
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+
+    flex: 0 0 auto;
+
+    width: 46px;
+    height: 46px;
+
+    border: 0;
+    background: transparent;
+
+    color: #29406f;
+
+    cursor: pointer;
+
+    font-size: 30px;
+    font-weight: 800;
+
+    line-height: 1;
+
+    z-index: 20;
+}
+
+
+/* ============================================================
+   OVERALL RISK SCORE
+   ============================================================ */
+
+.fraud-module .module-header {
+    position: relative;
+}
+
+
+.overall-risk-container {
+
+    width: 100%;
+    max-width: 900px;
+
+    margin: 0 auto;
+
+    padding: 24px 24px 32px;
+
+    box-sizing: border-box;
+
+    text-align: center;
+}
+
+
+.risk-gauge {
+
+    width: min(100%, 680px);
+
+    margin: 10px auto 0;
+
+    position: relative;
+}
+
+
+.risk-gauge svg {
+
+    display: block;
+
+    width: 100%;
+    height: auto;
+
+    overflow: visible;
+}
+
+
+/* ------------------------------------------------------------
+   GAUGE SECTIONS
+------------------------------------------------------------ */
+
+.gauge-section {
+
+    fill: none;
+
+    stroke-width: 58;
+
+    stroke-linecap: butt;
+}
+
+
+/* Truth → Low */
+
+.gauge-low {
+    stroke: #5fa55b;
+}
+
+
+/* Low → Medium */
+
+.gauge-medium {
+    stroke: #efd45b;
+}
+
+
+/* Medium → High */
+
+.gauge-high {
+    stroke: #d98a38;
+}
+
+
+/* High → Lie */
+
+.gauge-danger {
+    stroke: #c8443d;
+}
+
+
+/* ------------------------------------------------------------
+   NEEDLE
+
+   IMPORTANT:
+   No CSS transform is applied here.
+   JavaScript alone controls rotation.
+------------------------------------------------------------ */
+
+.risk-needle-line {
+
+    stroke: #222;
+
+    stroke-width: 7;
+
+    stroke-linecap: round;
+}
+
+
+.risk-needle-dot {
+
+    fill: #222;
+}
+
+
+
+
+
+
+
+.risk-score-number {
+
+    margin-top: 24px;
+
+    color: #29406f;
+
+    font-size: clamp(44px, 7vw, 72px);
+
+    font-weight: 800;
+
+    line-height: 1;
+}
+
+
+.risk-score-caption {
+
+    margin-top: 8px;
+
+    color: #6d6d6d;
+
+    font-size: 13px;
+
+    font-weight: 800;
+
+    letter-spacing: 3px;
+}
+
+
+.risk-level-badge {
+
+    display: inline-block;
+
+    margin-top: 18px;
+
+    padding: 11px 28px;
+
+    border-radius: 999px;
+
+    background: #edf1f8;
+
+    color: #29406f;
+
+    font-size: 18px;
+
+    font-weight: 800;
+}
+
+
+/* ------------------------------------------------------------
+   RISK COMPONENTS
+------------------------------------------------------------ */
+
+.risk-components {
+
+    display: grid;
+
+    grid-template-columns:
+        repeat(4, minmax(0, 1fr));
+
+    gap: 14px;
+
+    margin-top: 28px;
+}
+
+
+.risk-component {
+
+    padding: 16px 10px;
+
+    border: 1px solid #dfe3e9;
+
+    border-radius: 14px;
+
+    background: #f7f8fa;
+}
+
+
+.risk-component span {
+
+    display: block;
+
+    color: #666;
+
+    font-size: 13px;
+}
+
+
+.risk-component strong {
+
+    display: block;
+
+    margin-top: 5px;
+
+    color: #29406f;
+
+    font-size: 21px;
+}
+
+
+/* ------------------------------------------------------------
+   COMMENT
+------------------------------------------------------------ */
+
+.risk-comment {
+
+    margin-top: 24px;
+
+    padding: 18px 22px;
+
+    border-left: 5px solid #29406f;
+
+    border-radius: 12px;
+
+    background: #f7f8fa;
+
+    color: #203b69;
+
+    text-align: left;
+
+    font-size: 16px;
+
+    line-height: 1.6;
+}
+
+
+.risk-comment strong {
+    margin-right: 7px;
+}
+
+
+@media (max-width: 700px) {
+
+    .risk-components {
+
+        grid-template-columns:
+            repeat(2, minmax(0, 1fr));
+
+    }
+
+}
+
+</style>
+
+</head>
+
+
+<body>
+
+<div class="dashboard">
+
+
+   <!-- =====================================================
+     TITLE
+====================================================== -->
+
+<!-- =====================================================
+     TITLE / BRAND
+====================================================== -->
+
+<div class="brand-header">
+
+    <img
+        src="{{ url_for('static', filename='V.Y.A.S..jpeg') }}"
+        alt="VYAS Logo"
+        class="vyas-logo"
+    >
+
+    <h1>
+        AI-Based Document Screening System
+    </h1>
+
+    <p class="welcome">
+        Upload your document for Verification.
+    </p>
+
+</div>
+
+
+
+
+    <!-- =====================================================
+         UPLOAD
+    ====================================================== -->
+
+    <div class="upload-box">
+
+        <h2>
+            Upload Document
+        </h2>
+
+
+        <p>
+            Upload an Identity Document.
+        </p>
+
+
+        <form
+            action="{{ url_for('upload') }}"
+            method="POST"
+            enctype="multipart/form-data"
+        >
+
+            <input
+                type="file"
+                name="document"
+                accept="image/*"
+                required
+            >
+
+
+            <button type="submit">
+                Upload & Process
+            </button>
+
+        </form>
+
+    </div>
+
+
+
+    <!-- =====================================================
+         MODULE GRID
+    ====================================================== -->
+
+    <div class="modules">
+
+
+
+        <!-- =================================================
+             OCR EXTRACTION
+        ================================================== -->
+
+        <div
+            class="module ocr-module"
+            id="ocrModule"
+        >
+
+            <div
+                class="module-header clickable-header"
+            >
+
+                <div class="module-header-content">
+
+                    <h2>
+                        📄 OCR Extraction
+                    </h2>
+
+                    <p>
+                        Extract information from the uploaded document.
+                    </p>
+
+                </div>
+
+
+                <button
+                    type="button"
+                    class="expand-button"
+                    id="ocrButton"
+                    aria-label="Toggle OCR result"
+                    aria-expanded="false"
+                >
+                    <span id="ocrArrow">▼</span>
+                </button>
+
+            </div>
+
+
+            {% if result %}
+
+            <div
+                class="ocr-result"
+                id="ocrResult"
+            >
+
+                <div class="terminal-output">
+
+
+                    <!-- PAN -->
+
+                    {% if result.document_type == "PAN" %}
+
+                    <div class="terminal-line separator">
+                        ========================================
+                    </div>
+
+                    <div class="terminal-line center">
+                        INCOME TAX DEPARTMENT
+                    </div>
+
+                    <div class="terminal-line center">
+                        GOVT OF INDIA
+                    </div>
+
+                    <div class="terminal-line separator">
+                        ========================================
+                    </div>
+
+                    <div class="terminal-line center">
+                        DOCUMENT INFORMATION
+                    </div>
+
+                    <div class="terminal-line separator">
+                        ========================================
+                    </div>
+
+                    <div class="terminal-line">
+                        Name : {{ result.name or "Not detected" }}
+                    </div>
+
+                    <div class="terminal-line">
+                        DOB : {{ result.dob or "Not detected" }}
+                    </div>
+
+                    <div class="terminal-line">
+                        Gender : {{ result.gender or "Not detected" }}
+                    </div>
+
+                    <div class="terminal-line">
+                        PAN Number : {{ result.pan_number or "Not detected" }}
+                    </div>
+
+                    <div class="terminal-line separator">
+                        ========================================
+                    </div>
+
+
+
+                    <!-- AADHAAR -->
+
+                    {% elif result.document_type == "AADHAAR" %}
+
+                    <div class="terminal-line separator">
+                        ========================================
+                    </div>
+
+                    <div class="terminal-line center">
+                        GOVERNMENT OF INDIA
+                    </div>
+
+                    <div class="terminal-line center">
+                        AADHAAR
+                    </div>
+
+                    <div class="terminal-line separator">
+                        ========================================
+                    </div>
+
+                    <div class="terminal-line center">
+                        DOCUMENT INFORMATION
+                    </div>
+
+                    <div class="terminal-line separator">
+                        ========================================
+                    </div>
+
+                    <div class="terminal-line">
+                        Name : {{ result.name or "Not detected" }}
+                    </div>
+
+                    <div class="terminal-line">
+                        DOB : {{ result.dob or "Not detected" }}
+                    </div>
+
+                    <div class="terminal-line">
+                        Gender : {{ result.gender or "Not detected" }}
+                    </div>
+
+                    <div class="terminal-line">
+                        Aadhaar No. : {{ result.aadhaar_number or "Not detected" }}
+                    </div>
+
+                    <div class="terminal-line separator">
+                        ========================================
+                    </div>
+
+
+
+                    <!-- PASSPORT -->
+
+                    {% elif result.document_type == "PASSPORT" %}
+
+                    <div class="terminal-line separator">
+                        =======================================================
+                    </div>
+
+                    <div class="terminal-line center">
+                        PASSPORT INFORMATION
+                    </div>
+
+                    <div class="terminal-line separator">
+                        =======================================================
+                    </div>
+
+                    <div class="terminal-line">
+                        Document Type : PASSPORT
+                    </div>
+
+                    <div class="terminal-line">
+                        Passport No. : {{ result.passport_number or "Not detected" }}
+                    </div>
+
+                    <div class="terminal-line">
+                        Surname : {{ result.surname or "Not detected" }}
+                    </div>
+
+                    <div class="terminal-line">
+                        Given Name : {{ result.given_name or "Not detected" }}
+                    </div>
+
+                    <div class="terminal-line">
+                        Nationality : {{ result.nationality or "Not detected" }}
+                    </div>
+
+                    <div class="terminal-line">
+                        Date of Birth : {{ result.dob or "Not detected" }}
+                    </div>
+
+                    <div class="terminal-line">
+                        Sex : {{ result.sex or result.gender or "Not detected" }}
+                    </div>
+
+                    <div class="terminal-line">
+                        Place of Birth : {{ result.place_of_birth or "Not detected" }}
+                    </div>
+
+                    <div class="terminal-line">
+                        Place of Issue : {{ result.place_of_issue or "Not detected" }}
+                    </div>
+
+                    <div class="terminal-line">
+                        Date of Issue : {{ result.date_of_issue or "Not detected" }}
+                    </div>
+
+                    <div class="terminal-line">
+                        Date of Expiry : {{ result.date_of_expiry or "Not detected" }}
+                    </div>
+
+                    <div class="terminal-line separator">
+                        =======================================================
+                    </div>
+
+
+
+                    <!-- UNKNOWN -->
+
+                    {% else %}
+
+                    <div class="terminal-line separator">
+                        ========================================
+                    </div>
+
+                    <div class="terminal-line center">
+                        DOCUMENT INFORMATION
+                    </div>
+
+                    <div class="terminal-line separator">
+                        ========================================
+                    </div>
+
+                    <div class="terminal-line">
+                        Name : {{ result.name or "Not detected" }}
+                    </div>
+
+                    <div class="terminal-line">
+                        DOB : {{ result.dob or "Not detected" }}
+                    </div>
+
+                    <div class="terminal-line">
+                        Gender : {{ result.gender or "Not detected" }}
+                    </div>
+
+                    <div class="terminal-line separator">
+                        ========================================
+                    </div>
+
+                    {% endif %}
+
+                </div>
+
+            </div>
+
+            {% endif %}
+
+        </div>
+
+
+
+        <!-- =================================================
+             DOCUMENT VALIDATION
+        ================================================== -->
+
+        <div
+            class="module validation-module"
+            id="validationModule"
+        >
+
+            <div class="module-header">
+
+                <div class="module-header-content">
+
+                    <h2>
+                        ✓ Document<br>
+                        Validation
+                    </h2>
+
+                    <p>
+                        Validate document details and expiry information.
+                    </p>
+
+                </div>
+
+
+                <button
+                    type="button"
+                    id="validationButton"
+                    class="validation-toggle-button"
+                    aria-label="Toggle document validation"
+                    aria-expanded="false"
+                >
+                    <span id="validationArrow">
+                        ▼
+                    </span>
+                </button>
+
+            </div>
+
+
+            <div
+                id="validationResult"
+                class="validation-result"
+            >
+
+                {% if validation %}
+
+                <div class="validation-box">
+
+                    <div class="validation-title">
+                        VALIDATION RESULT
+                    </div>
+
+
+                    <div class="validation-list">
+
+                        {% for field, status in validation.checks.items() %}
+
+                        <div class="validation-row">
+
+                            <span class="validation-label">
+                                {{ field }}
+                            </span>
+
+
+                            {% if status == "PASS" %}
+
+                            <span class="validation-status validation-pass">
+                                ✓ PASS
+                            </span>
+
+                            {% else %}
+
+                            <span class="validation-status validation-fail">
+                                ✗ {{ status }}
+                            </span>
+
+                            {% endif %}
+
+                        </div>
+
+                        {% endfor %}
+
+                    </div>
+
+                </div>
+
+
+                {% if validation.final_status == "PASS" %}
+
+                <div class="validation-final pass">
+                    ✓ BASIC VALIDATION PASSED
+                </div>
+
+                {% else %}
+
+                <div class="validation-final fail">
+                    ✗ VALIDATION FAILED
+                </div>
+
+                {% endif %}
+
+
+                {% else %}
+
+                <div class="validation-empty">
+                    Please upload a document first to perform validation.
+                </div>
+
+                {% endif %}
+
+            </div>
+
+        </div>
+
+
+
+        <!-- =================================================
+             TAMPERING DETECTION
+        ================================================== -->
+
+        <div
+            class="module tampering-module"
+            id="tamperingModule"
+        >
+
+            <div
+                class="module-header tampering-clickable"
+                onclick="toggleTampering()"
+            >
+
+                <div class="module-header-content">
+
+                    <h2>
+                        🔍 Tampering<br>
+                        Detection
+                    </h2>
+
+                    <p>
+                        Detect possible document manipulation.
+                    </p>
+
+                </div>
+
+
+                <button
+                    type="button"
+                    class="module-arrow"
+                    id="tamperingArrow"
+                    onclick="event.stopPropagation(); toggleTampering();"
+                >
+                    ▼
+                </button>
+
+            </div>
+
+
+            <div
+                id="tamperingResult"
+                class="tampering-result"
+            >
+
+                {% if tampering %}
+
+                    {% if tampering.status == "ERROR" %}
+
+                        <div class="tampering-error">
+
+                            <h3>
+                                ⚠ Tampering Analysis Error
+                            </h3>
+
+                            <p>
+                                {{ tampering.error }}
+                            </p>
+
+                        </div>
+
+                    {% else %}
+
+                        <div
+                            class="tampering-status
+                            {% if tampering.status == 'HIGH RISK' %}
+                                high-risk
+                            {% elif tampering.status == 'MEDIUM RISK' %}
+                                medium-risk
+                            {% else %}
+                                low-risk
+                            {% endif %}"
+                        >
+
+                            <span>
+                                Final Status
+                            </span>
+
+                            <strong>
+                                {{ tampering.status }}
+                            </strong>
+
+                        </div>
+
+
+                        <div class="tampering-stats">
+
+                            <div class="tampering-stat">
+                                <span>ELA Mean</span>
+                                <strong>{{ tampering.ela_mean }}</strong>
+                            </div>
+
+                            <div class="tampering-stat">
+                                <span>ELA Maximum</span>
+                                <strong>{{ tampering.ela_max }}</strong>
+                            </div>
+
+                            <div class="tampering-stat">
+                                <span>ELA Std Deviation</span>
+                                <strong>{{ tampering.ela_std }}</strong>
+                            </div>
+
+                            <div class="tampering-stat">
+                                <span>Suspicious Area</span>
+                                <strong>{{ tampering.suspicious_percentage }}%</strong>
+                            </div>
+
+                            <div class="tampering-stat">
+                                <span>Suspicious Regions</span>
+                                <strong>{{ tampering.region_count }}</strong>
+                            </div>
+
+                            <div class="tampering-stat">
+                                <span>Tampering Risk</span>
+                                <strong>{{ tampering.risk_score }}/100</strong>
+                            </div>
+
+                        </div>
+
+
+                        {% if tampering.result_image %}
+
+                        <div class="tampering-image-section">
+
+                            <h3>
+                                Potential Tampering Areas
+                            </h3>
+
+                            <img
+                                src="{{ tampering.result_image }}"
+                                alt="Tampering Detection Result"
+                                class="tampering-result-image"
+                            >
+
+                        </div>
+
+                        {% endif %}
+
+                    {% endif %}
+
+                {% else %}
+
+                    <div class="tampering-empty">
+
+                        <p>
+                            Upload a document to perform tampering analysis.
+                        </p>
+
+                    </div>
+
+                {% endif %}
+
+            </div>
+
+        </div>
+
+
+
+        <!-- =================================================
+             FACE DETECTION / VERIFICATION
+        ================================================== -->
+
+        <div
+            class="module face-module"
+            id="faceModule"
+        >
+
+            <div
+                class="module-header face-clickable"
+                onclick="toggleFace()"
+            >
+
+                <div class="module-header-content">
+
+                    <h2>
+                        👤 Face<br>
+                        Detection
+                    </h2>
+
+                    <p>
+                        Detect and verify the document holder.
+                    </p>
+
+                </div>
+
+
+                <button
+                    type="button"
+                    class="module-arrow"
+                    id="faceArrow"
+                    onclick="event.stopPropagation(); toggleFace();"
+                >
+                    ▼
+                </button>
+
+            </div>
+
+
+            <div
+                id="faceResult"
+                class="face-result"
+            >
+
+                {% if face_result and face_result.success %}
+
+                    <div class="face-ready">
+
+                        <h3>
+                            ✓ Document Face Detected
+                        </h3>
+
+                        <p>
+                            The face in the uploaded document
+                            is ready for verification.
+                        </p>
+
+                    </div>
+
+                {% elif face_result %}
+
+                    <div class="face-error">
+
+                        <h3>
+                            ⚠ Face Detection
+                        </h3>
+
+                        <p>
+                            {{ face_result.error }}
+                        </p>
+
+                    </div>
+
+                {% else %}
+
+                    <div class="face-empty">
+
+                        <p>
+                            Upload an identity document first.
+                        </p>
+
+                    </div>
+
+                {% endif %}
+
+
+                {% if face_result and face_result.success %}
+
+                <div class="camera-section">
+
+                    <h3>
+                        Live Face Verification
+                    </h3>
+
+                    <p>
+                        Allow camera access and position your
+                        face inside the camera frame.
+                    </p>
+
+
+                    <div class="camera-container">
+
+                        <video
+                            id="faceCamera"
+                            autoplay
+                            playsinline
+                        ></video>
+
+                        <canvas
+                            id="faceCanvas"
+                            style="display:none;"
+                        ></canvas>
+
+                    </div>
+
+
+                    <div class="camera-buttons">
+
+                        <button
+                            type="button"
+                            id="startCameraButton"
+                            onclick="startFaceCamera()"
+                        >
+                            Start Camera
+                        </button>
+
+
+                        <button
+                            type="button"
+                            id="verifyFaceButton"
+                            onclick="verifyFace()"
+                            disabled
+                        >
+                            Verify Face
+                        </button>
+
+
+                        <button
+                            type="button"
+                            id="stopCameraButton"
+                            onclick="stopFaceCamera()"
+                        >
+                            Stop Camera
+                        </button>
+
+                    </div>
+
+
+                    <div
+                        id="cameraMessage"
+                        class="camera-message"
+                    ></div>
+
+
+                    <div
+                        id="verificationResult"
+                        class="verification-result"
+                    ></div>
+
+                </div>
+
+                {% endif %}
+
+            </div>
+
+        </div>
+
+
+
+        <!-- =================================================
+             OVERALL RISK SCORE
+        ================================================== -->
+
+        <div
+            class="module fraud-module"
+            id="fraudModule"
+        >
+
+            <div
+                class="module-header fraud-clickable"
+                onclick="toggleFraud()"
+            >
+
+                <div class="module-header-content">
+
+                    <h2>
+                        🟣 Overall Risk Score
+                    </h2>
+
+                    <p>
+                        Combined document authenticity risk assessment.
+                    </p>
+
+                </div>
+
+
+                <button
+                    type="button"
+                    class="module-arrow"
+                    id="fraudArrow"
+                    aria-label="Toggle overall risk score"
+                    aria-expanded="false"
+                    onclick="event.stopPropagation(); toggleFraud();"
+                >
+                    ▼
+                </button>
+
+            </div>
+
+
+            <div
+                id="fraudResult"
+                class="fraud-result"
+            >
+
+                {% if overall_risk %}
+
+                <div class="overall-risk-container">
+
+
+                    <!-- =====================================
+                         RISK GAUGE
+
+                         Pivot = 300, 280
+                         Score 0   = LEFT
+                         Score 50  = TOP
+                         Score 100 = RIGHT
+                    ====================================== -->
+
+                    <div class="risk-gauge">
+
+                        <svg
+                            viewBox="0 0 600 330"
+                            aria-label="Overall risk meter"
+                        >
+
+
+                            <!-- LOW: 0 TO 25 -->
+
+                            <path
+                                class="gauge-section gauge-low"
+                                d="M 80 280 A 220 220 0 0 1 144.44 124.44"
+                            />
+
+
+                            <!-- MEDIUM: 25 TO 50 -->
+
+                            <path
+                                class="gauge-section gauge-medium"
+                                d="M 144.44 124.44 A 220 220 0 0 1 300 60"
+                            />
+
+
+                            <!-- HIGH: 50 TO 75 -->
+
+                            <path
+                                class="gauge-section gauge-high"
+                                d="M 300 60 A 220 220 0 0 1 455.56 124.44"
+                            />
+
+
+                            <!-- DANGER: 75 TO 100 -->
+
+                            <path
+                                class="gauge-section gauge-danger"
+                                d="M 455.56 124.44 A 220 220 0 0 1 520 280"
+                            />
+
+
+                            <!-- NEEDLE -->
+
+                            <g
+                                id="riskNeedle"
+                                data-risk="{{ overall_risk.risk_score }}"
+                                transform="rotate(-90 300 280)"
+                            >
+
+                                <line
+                                    class="risk-needle-line"
+                                    x1="300"
+                                    y1="280"
+                                    x2="300"
+                                    y2="105"
+                                />
+
+                                <circle
+                                    class="risk-needle-dot"
+                                    cx="300"
+                                    cy="280"
+                                    r="15"
+                                />
+
+                            </g>
+
+                        </svg>
+
+                    </div>
+
+
+                    
+
+
+
+                    <!-- SCORE -->
+
+                    <div
+                        class="risk-score-number"
+                        id="riskPercentage"
+                    >
+                        {{ "%.2f"|format(overall_risk.risk_score) }}%
+                    </div>
+
+
+                    <div class="risk-score-caption">
+                        ESTIMATED FAKE RISK
+                    </div>
+
+
+                    <div
+                        class="risk-level-badge"
+                        id="riskLevel"
+                    >
+                        {{ overall_risk.risk_level }}
+                    </div>
+
+
+
+                    <!-- COMPONENTS -->
+
+                    <div class="risk-components">
+
+
+                        <div class="risk-component">
+
+                            <span>
+                                OCR
+                            </span>
+
+                            <strong id="riskOCR">
+                                {{ "%.2f"|format(overall_risk.components.ocr) }}%
+                            </strong>
+
+                        </div>
+
+
+
+                        <div class="risk-component">
+
+                            <span>
+                                Validation
+                            </span>
+
+                            <strong id="riskValidation">
+                                {{ "%.2f"|format(overall_risk.components.validation) }}%
+                            </strong>
+
+                        </div>
+
+
+
+                        <div class="risk-component">
+
+                            <span>
+                                Tampering
+                            </span>
+
+                            <strong id="riskTampering">
+                                {{ "%.2f"|format(overall_risk.components.tampering) }}%
+                            </strong>
+
+                        </div>
+
+
+
+                        <div class="risk-component">
+
+                            <span>
+                                Face
+                            </span>
+
+                            <strong id="riskFace">
+                                {{ "%.2f"|format(overall_risk.components.face) }}%
+                            </strong>
+
+                        </div>
+
+
+                    </div>
+
+
+
+                    <!-- COMMENT -->
+
+                    <div class="risk-comment">
+
+                        <strong>
+                            Comment:
+                        </strong>
+
+                        <span id="riskComment">
+                            {{ overall_risk.comment }}
+                        </span>
+
+                    </div>
+
+
+                </div>
+
+                {% else %}
+
+                <div class="validation-empty">
+                    Upload a document to calculate the overall risk score.
+                </div>
+
+                {% endif %}
+
+            </div>
+
+        </div>
+
+
+    </div>
+
+
+
+    <!-- =====================================================
+         LOGOUT
+    ====================================================== -->
+
+    <a
+        href="{{ url_for('login') }}"
+        class="logout"
+    >
+        Logout
+    </a>
+
+
+</div>
+
+
+
+<!-- =========================================================
+     JAVASCRIPT
+========================================================= -->
+
+<script>
+
+
+console.log("=================================");
+console.log("DASHBOARD JAVASCRIPT STARTED");
+console.log("=================================");
+
+
+
+/* ============================================================
+   OCR + VALIDATION
+============================================================ */
+
+document.addEventListener("DOMContentLoaded", function () {
+
+
+    /* ========================================================
+       OCR
+    ======================================================== */
+
+    const ocrButton =
+        document.getElementById("ocrButton");
+
+    const ocrResult =
+        document.getElementById("ocrResult");
+
+    const ocrModule =
+        document.getElementById("ocrModule");
+
+    const ocrArrow =
+        document.getElementById("ocrArrow");
+
+
+    if (
+        ocrButton &&
+        ocrResult &&
+        ocrModule
+    ) {
+
+        ocrButton.addEventListener(
+            "click",
+            function (event) {
+
+                event.preventDefault();
+                event.stopPropagation();
+
+
+                const isOpen =
+                    ocrResult.classList.contains("show");
+
+
+                if (isOpen) {
+
+                    ocrResult.classList.remove("show");
+
+                    ocrModule.classList.remove(
+                        "expanded"
+                    );
+
+                    ocrButton.setAttribute(
+                        "aria-expanded",
+                        "false"
+                    );
+
+                    if (ocrArrow) {
+                        ocrArrow.textContent = "▼";
+                    }
+
+                } else {
+
+                    ocrResult.classList.add("show");
+
+                    ocrModule.classList.add(
+                        "expanded"
+                    );
+
+                    ocrButton.setAttribute(
+                        "aria-expanded",
+                        "true"
+                    );
+
+                    if (ocrArrow) {
+                        ocrArrow.textContent = "▲";
+                    }
+
+                }
+
+            }
+        );
+
+    }
+
+
+
+    /* ========================================================
+       VALIDATION
+    ======================================================== */
+
+    const validationButton =
+        document.getElementById("validationButton");
+
+    const validationResult =
+        document.getElementById("validationResult");
+
+    const validationModule =
+        document.getElementById("validationModule");
+
+    const validationArrow =
+        document.getElementById("validationArrow");
+
+
+    if (
+        validationButton &&
+        validationResult &&
+        validationModule
+    ) {
+
+        validationButton.addEventListener(
+            "click",
+            function (event) {
+
+                event.preventDefault();
+                event.stopPropagation();
+
+
+                const isOpen =
+                    validationResult.classList.contains(
+                        "show"
+                    );
+
+
+                if (isOpen) {
+
+                    validationResult.classList.remove(
+                        "show"
+                    );
+
+                    validationModule.classList.remove(
+                        "expanded"
+                    );
+
+                    validationButton.setAttribute(
+                        "aria-expanded",
+                        "false"
+                    );
+
+                    if (validationArrow) {
+                        validationArrow.textContent = "▼";
+                    }
+
+                } else {
+
+                    validationResult.classList.add(
+                        "show"
+                    );
+
+                    validationModule.classList.add(
+                        "expanded"
+                    );
+
+                    validationButton.setAttribute(
+                        "aria-expanded",
+                        "true"
+                    );
+
+                    if (validationArrow) {
+                        validationArrow.textContent = "▲";
+                    }
+
+                }
+
+            }
+        );
+
+    }
+
+
+    /* ========================================================
+       INITIAL STATE
+    ======================================================== */
+
+    document
+        .querySelectorAll(
+            ".ocr-result, .validation-result, .tampering-result, .face-result, .fraud-result, .verification-result"
+        )
+        .forEach(function (element) {
+
+            element.classList.remove("show");
+
+        });
+
+
+    document
+        .querySelectorAll(".module")
+        .forEach(function (module) {
+
+            module.classList.remove("expanded");
+
+        });
+
+
+    updateRiskNeedleFromScreen();
+
+});
+
+
+
+/* ============================================================
+   TAMPERING TOGGLE
+============================================================ */
+
+function toggleTampering() {
+
+    const result =
+        document.getElementById(
+            "tamperingResult"
+        );
+
+    const arrow =
+        document.getElementById(
+            "tamperingArrow"
+        );
+
+    const module =
+        document.getElementById(
+            "tamperingModule"
+        );
+
+
+    if (!result) {
+        return;
+    }
+
+
+    const isOpen =
+        result.classList.contains("show");
+
+
+    if (isOpen) {
+
+        result.classList.remove("show");
+
+        if (module) {
+            module.classList.remove("expanded");
+        }
+
+        if (arrow) {
+            arrow.textContent = "▼";
+        }
+
+    } else {
+
+        result.classList.add("show");
+
+        if (module) {
+            module.classList.add("expanded");
+        }
+
+        if (arrow) {
+            arrow.textContent = "▲";
+        }
+
+    }
+
+}
+
+
+
+/* ============================================================
+   FACE TOGGLE
+============================================================ */
+
+function toggleFace() {
+
+    const result =
+        document.getElementById(
+            "faceResult"
+        );
+
+    const arrow =
+        document.getElementById(
+            "faceArrow"
+        );
+
+    const module =
+        document.getElementById(
+            "faceModule"
+        );
+
+
+    if (!result) {
+        return;
+    }
+
+
+    const isOpen =
+        result.classList.contains("show");
+
+
+    if (isOpen) {
+
+        result.classList.remove("show");
+
+        if (module) {
+            module.classList.remove("expanded");
+        }
+
+        if (arrow) {
+            arrow.textContent = "▼";
+        }
+
+    } else {
+
+        result.classList.add("show");
+
+        if (module) {
+            module.classList.add("expanded");
+        }
+
+        if (arrow) {
+            arrow.textContent = "▲";
+        }
+
+    }
+
+}
+
+
+
+/* ============================================================
+   CAMERA
+============================================================ */
+
+let faceCameraStream = null;
+
+
+async function startFaceCamera() {
+
+    const video =
+        document.getElementById(
+            "faceCamera"
+        );
+
+    const verifyButton =
+        document.getElementById(
+            "verifyFaceButton"
+        );
+
+    const message =
+        document.getElementById(
+            "cameraMessage"
+        );
+
+
+    if (!video) {
+        return;
+    }
+
+
+    try {
+
+        faceCameraStream =
+            await navigator.mediaDevices.getUserMedia({
+
+                video: {
+                    facingMode: "user"
+                },
+
+                audio: false
+
+            });
+
+
+        video.srcObject =
+            faceCameraStream;
+
+
+        if (verifyButton) {
+
+            verifyButton.disabled =
+                false;
+
+        }
+
+
+        if (message) {
+
+            message.innerHTML =
+                "✓ Camera started. Position your face and click Verify Face.";
+
+        }
+
+    }
+
+    catch (error) {
+
+        console.error(error);
+
+        if (message) {
+
+            message.innerHTML =
+                "❌ Camera access denied or unavailable.";
+
+        }
+
+    }
+
+}
+
+
+
+function stopFaceCamera() {
+
+    if (faceCameraStream) {
+
+        faceCameraStream
+            .getTracks()
+            .forEach(
+                track => track.stop()
+            );
+
+        faceCameraStream =
+            null;
+
+    }
+
+
+    const video =
+        document.getElementById(
+            "faceCamera"
+        );
+
+    const verifyButton =
+        document.getElementById(
+            "verifyFaceButton"
+        );
+
+
+    if (video) {
+
+        video.srcObject =
+            null;
+
+    }
+
+
+    if (verifyButton) {
+
+        verifyButton.disabled =
+            true;
+
+    }
+
+}
+
+
+
+/* ============================================================
+   VERIFY FACE
+============================================================ */
+
+async function verifyFace() {
+
+    const video =
+        document.getElementById(
+            "faceCamera"
+        );
+
+    const canvas =
+        document.getElementById(
+            "faceCanvas"
+        );
+
+    const resultBox =
+        document.getElementById(
+            "verificationResult"
+        );
+
+    const message =
+        document.getElementById(
+            "cameraMessage"
+        );
+
+
+    if (
+        !video ||
+        !canvas
+    ) {
+        return;
+    }
+
+
+    if (!faceCameraStream) {
+
+        if (message) {
+
+            message.innerHTML =
+                "❌ Start the camera first.";
+
+        }
+
+        return;
+    }
+
+
+    if (
+        !video.videoWidth ||
+        !video.videoHeight
+    ) {
+
+        if (message) {
+
+            message.innerHTML =
+                "❌ Camera is still loading. Please wait.";
+
+        }
+
+        return;
+    }
+
+
+    /* Capture frame */
+
+    canvas.width =
+        video.videoWidth;
+
+    canvas.height =
+        video.videoHeight;
+
+
+    const context =
+        canvas.getContext("2d");
+
+
+    context.drawImage(
+        video,
+        0,
+        0,
+        canvas.width,
+        canvas.height
+    );
+
+
+    const imageData =
+        canvas.toDataURL(
+            "image/jpeg",
+            0.90
+        );
+
+
+    const documentFilename =
+        "{{ document_filename or '' }}";
+
+
+    if (!documentFilename) {
+
+        if (message) {
+
+            message.innerHTML =
+                "❌ Uploaded document reference is missing.";
+
+        }
+
+        return;
+    }
+
+
+    if (message) {
+
+        message.innerHTML =
+            "⏳ Verifying face...";
+
+    }
+
+
+    try {
+
+        const response =
+            await fetch(
+                "/verify-face",
+                {
+
+                    method: "POST",
+
+                    headers: {
+                        "Content-Type":
+                            "application/json"
+                    },
+
+                    body: JSON.stringify({
+
+                        image:
+                            imageData,
+
+                        document_filename:
+                            documentFilename
+
+                    })
+
+                }
+            );
+
+
+        const data =
+            await response.json();
+
+
+        console.log(
+            "FACE VERIFICATION RESPONSE:",
+            data
+        );
+
+
+        /* Error */
+
+        if (!data.success) {
+
+            if (message) {
+
+                message.innerHTML =
+                    "❌ " +
+                    (
+                        data.error ||
+                        "Face verification failed."
+                    );
+
+            }
+
+
+            if (resultBox) {
+
+                resultBox.innerHTML = "";
+
+                resultBox.classList.remove("show");
+
+            }
+
+            return;
+
+        }
+
+
+        /* Success */
+
+        if (message) {
+
+            message.innerHTML =
+                "✓ Face verification completed.";
+
+        }
+
+
+        const statusClass =
+            String(
+                data.identity_status || ""
+            ).toUpperCase() === "VERIFIED"
+                ? "verified"
+                : "suspicious";
+
+
+        if (resultBox) {
+
+            resultBox.innerHTML = `
+
+                <div class="verification-status ${statusClass}">
+
+                    <span>
+                        Identity Status
+                    </span>
+
+                    <strong>
+                        ${data.identity_status || "UNVERIFIED"}
+                    </strong>
+
+                </div>
+
+
+                <div class="verification-grid">
+
+
+                    <div class="verification-card">
+
+                        <span>
+                            Document Face
+                        </span>
+
+                        <strong>
+                            ${data.document_face || "Unknown"}
+                        </strong>
+
+                    </div>
+
+
+                    <div class="verification-card">
+
+                        <span>
+                            Live Face
+                        </span>
+
+                        <strong>
+                            ${data.live_face || "Unknown"}
+                        </strong>
+
+                    </div>
+
+
+                    <div class="verification-card">
+
+                        <span>
+                            Similarity Score
+                        </span>
+
+                        <strong>
+                            ${Number(
+                                data.similarity ?? 0
+                            ).toFixed(3)}
+                        </strong>
+
+                    </div>
+
+
+                    <div class="verification-card">
+
+                        <span>
+                            Threshold
+                        </span>
+
+                        <strong>
+                            ${Number(
+                                data.threshold ?? 0
+                            ).toFixed(3)}
+                        </strong>
+
+                    </div>
+
+
+                    <div class="verification-card">
+
+                        <span>
+                            Result
+                        </span>
+
+                        <strong>
+                            ${data.result || "UNKNOWN"}
+                        </strong>
+
+                    </div>
+
+
+                </div>
+            `;
+
+
+            resultBox.classList.add("show");
+
+        }
+
+
+        /* ================================================
+           UPDATE OVERALL RISK
+
+           This uses EXACTLY the data returned by Flask.
+        ================================================= */
+
+        if (data.overall_risk) {
+
+            console.log(
+                "NEW OVERALL RISK:",
+                data.overall_risk
+            );
+
+            updateOverallRisk(
+                data.overall_risk
+            );
+
+        } else {
+
+            console.error(
+                "Server did not return overall_risk."
+            );
+
+        }
+
+    }
+
+    catch (error) {
+
+        console.error(
+            "FACE VERIFICATION ERROR:",
+            error
+        );
+
+
+        if (message) {
+
+            message.innerHTML =
+                "❌ Unable to connect to face verification service.";
+
+        }
+
+    }
+
+}
+
+
+
+/* ============================================================
+   OVERALL RISK TOGGLE
+============================================================ */
+
+function toggleFraud() {
+
+    const result =
+        document.getElementById(
+            "fraudResult"
+        );
+
+    const arrow =
+        document.getElementById(
+            "fraudArrow"
+        );
+
+    const module =
+        document.getElementById(
+            "fraudModule"
+        );
+
+
+    if (!result) {
+        return;
+    }
+
+
+    const isOpen =
+        result.classList.contains("show");
+
+
+    if (isOpen) {
+
+        result.classList.remove("show");
+
+        if (module) {
+            module.classList.remove("expanded");
+        }
+
+        if (arrow) {
+
+            arrow.textContent = "▼";
+
+            arrow.setAttribute(
+                "aria-expanded",
+                "false"
+            );
+
+        }
+
+    } else {
+
+        result.classList.add("show");
+
+        if (module) {
+            module.classList.add("expanded");
+        }
+
+        if (arrow) {
+
+            arrow.textContent = "▲";
+
+            arrow.setAttribute(
+                "aria-expanded",
+                "true"
+            );
+
+        }
+
+
+        updateRiskNeedleFromScreen();
+
+    }
+
+}
+
+
+
+/* ============================================================
+   RISK NEEDLE
+============================================================ */
+
+function updateRiskNeedle(score) {
+
+    const needle =
+        document.getElementById(
+            "riskNeedle"
+        );
+
+
+    if (!needle) {
+        return;
+    }
+
+
+    score =
+        Number(score);
+
+
+    if (!Number.isFinite(score)) {
+
+        score = 0;
+
+    }
+
+
+    score =
+        Math.max(
+            0,
+            Math.min(100, score)
+        );
+
+
+    /*
+        Score mapping:
+
+        0   = -90 degrees = LEFT
+        25  = -45 degrees
+        50  =   0 degrees = TOP
+        75  =  45 degrees
+        100 =  90 degrees = RIGHT
+
+        The original needle points UP.
+    */
+
+    const angle =
+        -90 + (
+            score * 1.8
+        );
+
+
+    needle.setAttribute(
+        "transform",
+        `rotate(${angle} 300 280)`
+    );
+
+
+    console.log(
+        "NEEDLE UPDATED:",
+        {
+            score: score,
+            angle: angle
+        }
+    );
+
+}
+
+
+
+function updateRiskNeedleFromScreen() {
+
+    const needle =
+        document.getElementById(
+            "riskNeedle"
+        );
+
+
+    if (!needle) {
+        return;
+    }
+
+
+    const score =
+        needle.getAttribute(
+            "data-risk"
+        );
+
+
+    updateRiskNeedle(
+        score
+    );
+
+}
+
+
+
+/* ============================================================
+   UPDATE OVERALL RISK
+============================================================ */
+
+function updateOverallRisk(risk) {
+
+    if (!risk) {
+
+        console.error(
+            "No risk object received."
+        );
+
+        return;
+
+    }
+
+
+    console.log(
+        "UPDATING DASHBOARD RISK:",
+        risk
+    );
+
+
+    const percentage =
+        document.getElementById(
+            "riskPercentage"
+        );
+
+    const level =
+        document.getElementById(
+            "riskLevel"
+        );
+
+    const comment =
+        document.getElementById(
+            "riskComment"
+        );
+
+    const ocr =
+        document.getElementById(
+            "riskOCR"
+        );
+
+    const validation =
+        document.getElementById(
+            "riskValidation"
+        );
+
+    const tampering =
+        document.getElementById(
+            "riskTampering"
+        );
+
+    const face =
+        document.getElementById(
+            "riskFace"
+        );
+
+    const needle =
+        document.getElementById(
+            "riskNeedle"
+        );
+
+
+    /* Safe values */
+
+    const score =
+        Number(
+            risk.risk_score ?? 0
+        );
+
+
+    const components =
+        risk.components ?? {};
+
+
+    const ocrScore =
+        Number(
+            components.ocr ?? 0
+        );
+
+    const validationScore =
+        Number(
+            components.validation ?? 0
+        );
+
+    const tamperingScore =
+        Number(
+            components.tampering ?? 0
+        );
+
+    const faceScore =
+        Number(
+            components.face ?? 0
+        );
+
+
+    /* Update score */
+
+    if (percentage) {
+
+        percentage.textContent =
+            score.toFixed(2) + "%";
+
+    }
+
+
+    /* Update level */
+
+    if (level) {
+
+        level.textContent =
+            risk.risk_level ??
+            "UNKNOWN";
+
+    }
+
+
+    /* Update comment */
+
+    if (comment) {
+
+        comment.textContent =
+            risk.comment ??
+            "Overall risk calculated.";
+
+    }
+
+
+    /* Update components */
+
+    if (ocr) {
+
+        ocr.textContent =
+            ocrScore.toFixed(2) + "%";
+
+    }
+
+
+    if (validation) {
+
+        validation.textContent =
+            validationScore.toFixed(2) + "%";
+
+    }
+
+
+    if (tampering) {
+
+        tampering.textContent =
+            tamperingScore.toFixed(2) + "%";
+
+    }
+
+
+    if (face) {
+
+        face.textContent =
+            faceScore.toFixed(2) + "%";
+
+    }
+
+
+    /* Update stored SVG score */
+
+    if (needle) {
+
+        needle.setAttribute(
+            "data-risk",
+            score
+        );
+
+    }
+
+
+    /* Update needle */
+
+    updateRiskNeedle(
+        score
+    );
+
+
+    console.log(
+        "RISK UI UPDATED SUCCESSFULLY"
+    );
+
+}
+
+
+</script>
+
+
+</body>
+
+</html>

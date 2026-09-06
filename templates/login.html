@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Login - AI Document Screening</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+
+<body>
+<div class="brand-header">
+
+    <img
+        src="{{ url_for('static', filename='V.Y.A.S..jpeg') }}"
+        alt="VYAS Logo"
+        class="vyas-logo"
+    >
+
+    <h1>Login</h1>
+
+</div>
+<div class="container">
+    <div class="card">
+
+        <h1>AI Document Screening</h1>
+        <p class="subtitle">Login to your account</p>
+
+        <form method="POST">
+
+            <label>Organization Email</label>
+            <input type="email" name="email"
+                   placeholder="Enter organization email" required>
+
+            <label>Password</label>
+            <input type="password" name="password"
+                   placeholder="Enter password" required>
+
+            <div class="forgot">
+                <a href="{{ url_for('forgot_password') }}">
+                    Forgot Password?
+                </a>
+            </div>
+
+            <button type="submit">Login</button>
+
+        </form>
+
+        <p class="bottom-text">
+            Don't have an account?
+            <a href="{{ url_for('signup') }}">Sign Up</a>
+        </p>
+
+    </div>
+</div>
+
+</body>
+</html>

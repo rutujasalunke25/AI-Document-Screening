@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Sign Up - AI Document Screening</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+
+<body>
+<div class="brand-header">
+
+    <img
+        src="{{ url_for('static', filename='V.Y.A.S..jpeg') }}"
+        alt="VYAS Logo"
+        class="vyas-logo"
+    >
+
+    <h1>Sign Up</h1>
+
+</div>
+<div class="container">
+    <div class="card">
+
+        <h1>AI Document Screening</h1>
+        <p class="subtitle">Create your account</p>
+
+        <form method="POST">
+
+            <label>Name</label>
+            <input type="text" name="name"
+                   placeholder="Enter your name" required>
+
+            <label>Mobile Number</label>
+            <input type="tel" name="mobile"
+                   placeholder="Enter mobile number" required>
+
+            <label>Organization Email</label>
+            <input type="email" name="email"
+                   placeholder="Enter organization email" required>
+
+            <label>Organization Name</label>
+            <input type="text" name="organization"
+                   placeholder="Enter organization name" required>
+
+            <label>Create Password</label>
+            <input type="password" name="password"
+                   placeholder="Create password" required>
+
+            <button type="submit">Sign Up</button>
+
+        </form>
+
+        <p class="bottom-text">
+            Already have an account?
+            <a href="{{ url_for('login') }}">Login</a>
+        </p>
+
+    </div>
+</div>
+
+</body>
+</html>
